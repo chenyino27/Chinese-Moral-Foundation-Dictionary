@@ -1,7 +1,7 @@
 # uncompyle6 version 3.8.0
 # Python bytecode 3.6 (3379)
-# Decompiled from: Python 3.6.6 (v3.6.6:4cf1f54eb7, Jun 26 2018, 19:50:54) 
-# [GCC 4.2.1 Compatible Apple LLVM 6.0 (clang-600.0.57)]
+# Decompiled from: Python 3.9.7 (default, Sep 16 2021, 08:50:36) 
+# [Clang 10.0.0 ]
 # Embedded file name: ./NewSuperWeiboTimelineTopicSpider.py
 # Compiled at: 2022-04-10 21:08:36
 # Size of source mod 2**32: 18877 bytes
@@ -76,26 +76,26 @@ class NewSuperWeiboTimelineTopicSpider(object):
      'Referer':'https://s.weibo.com/article?q=^%^E5^%^8D^%^8E^%^E4^%^B8^%^BAp50&Refer=weibo_article', 
      'Accept-Language':'zh-CN,zh;q=0.9,en-CN;q=0.8,en;q=0.7,es-MX;q=0.6,es;q=0.5', 
      'Cookie':'SINAGLOBAL=9725772483514.139.1613553315797; UOR=,,login.sina.com.cn; ALF=1659101552; SSOLoginState=1627565555; _s_tentry=weibo.com; Apache=2637325324112.2607.1627565587195; ULV=1627565587202:10:5:2:2637325324112.2607.1627565587195:1627305811035; wb_view_log_7343943709=1440*9002; SCF=Ak5UIygEew_0NkA_WvuL8CBEDoRWNdgAQNITQ0vB_Z5_JIbZb9n-ZA02uRx-EiC9ZnrF3l3seJyF9HgoTxHXD6Q.; SUB=_2A25MAHANDeRhGeFN71EY9C3LyzWIHXVvdObFrDV8PUJbmtAKLU32kW9NQDeegWi--yhLzxG_pOTq6ZrlSaJRzIOw; SUBP=0033WrSXqPxfM725Ws9jqgMF55529P9D9Wh.o0WH0iR_VjZs.QN5p_NR5JpX5K-hUgL.FoM0She4SheNeh.2dJLoIp7LxKML1KBLBKnLxKqL1hnLBoMNe0B01KB0S054; webim_unReadCount=%7B%22time%22%3A1627656664107%2C%22dm_pub_total%22%3A1%2C%22chat_group_client%22%3A0%2C%22chat_group_notice%22%3A0%2C%22allcountNum%22%3A1%2C%22msgbox%22%3A0%7D'}
-    params = {'q':'华为P50',
-     'typeall':'1',
-     'suball':'1',
-     'timescope':'custom:2021-05-01-9:2021-06-01-16',
-     'Refer':'g',
+    params = {'q':'华为P50', 
+     'typeall':'1', 
+     'suball':'1', 
+     'timescope':'custom:2021-05-01-9:2021-06-01-16', 
+     'Refer':'g', 
      'page':'1'}
-    realtime_params = {'q':'苏炳添晋级百米半决赛',
-     'rd':'realtime',
-     'tw':'realtime',
-     'Refer':'hot_realtime',
+    realtime_params = {'q':'苏炳添晋级百米半决赛', 
+     'rd':'realtime', 
+     'tw':'realtime', 
+     'Refer':'hot_realtime', 
      'page':'3'}
-    hot_params = {'q':'苏炳添晋级百米半决赛',
-     'suball':'1',
-     'xsort':'hot',
-     'tw':'hotweibo',
-     'Refer':'weibo_hot',
+    hot_params = {'q':'苏炳添晋级百米半决赛', 
+     'suball':'1', 
+     'xsort':'hot', 
+     'tw':'hotweibo', 
+     'Refer':'weibo_hot', 
      'page':'2'}
     max_page = 50
     timeout = 10
-    topic_folder = 'topic'
+    topic_folder = 'authority_virtue'
 
     def __init__(self, keyword, start_time, end_time, cookies=None, only_origin=False):
         self.keyword = keyword
@@ -113,6 +113,13 @@ class NewSuperWeiboTimelineTopicSpider(object):
             os.mkdir(self.topic_folder)
         self.result_file = self.topic_folder + '/' + self.keyword + '.csv'
 
+    def getLocation(self, html):
+        candidate = html.xpath('.//p[@class="txt"]/a[child::*[contains(text(), "2")]]')
+        if len(candidate) > 0:
+            location_url = candidate[0].xpath('./@href')[0]
+            location_name = candidate[0].xpath('string(.)').strip().replace('2', '')
+            return (location_url, location_name)
+
     def parseWeibo(self, html):
         weibos = html.xpath('//div[@class="card-wrap" and @mid]')
         if len(weibos) == 0:
@@ -128,6 +135,14 @@ class NewSuperWeiboTimelineTopicSpider(object):
             except:
                 content = weibo.xpath('.//div[@class="content"]/p[@class="txt" and @node-type="feed_list_content"]')[0].xpath('string(.)').strip()
 
+            images = weibo.xpath('.//div[@node-type="feed_list_media_prev"]/div/ul/li')
+            image_urls = []
+            for image in images:
+                image_url = image.xpath('./img/@src')[0]
+                if not image_url.startswith('http'):
+                    image_url = 'https:' + image_url
+                image_urls.append(image_url)
+
             p_from = weibo.xpath('.//div[@class="content"]/p[@class="from"]/a')[0]
             weibo_link = 'https:' + p_from.xpath('./@href')[0]
             publish_time = p_from.xpath('./text()')[0].strip()
@@ -137,15 +152,58 @@ class NewSuperWeiboTimelineTopicSpider(object):
                 source = ''
 
             publish_time = parseTime(publish_time)
+            bottoms = weibo.xpath('.//div[@class="card-act"]/ul/li')
+            location = self.getLocation(weibo)
+            if location:
+                if not location[0].strip() == 'javascript:void(0);':
+                    location_url, location_name = location[0], location[1]
+            else:
+                location_url, location_name = ('', '')
+            print(location_url, location_name)
+            forward_num, comment_num, like_num = (0, 0, 0)
+            start_index = len(bottoms) - 4
+            for index, bottom in enumerate(bottoms):
+                if index == start_index + 1:
+                    try:
+                        forward_num = bottom.xpath('./a/text()')[1].strip()
+                    except:
+                        forward_num = bottom.xpath('./a/text()')[0].strip()
+
+                    forward_num = forward_num.replace('转发', '').strip()
+                    if len(forward_num) == 0:
+                        forward_num = 0
+                    else:
+                        if index == start_index + 2:
+                            comment_num = bottom.xpath('./a/text()')[0].strip()
+                            comment_num = comment_num.replace('评论', '').strip()
+                            if len(comment_num) == 0:
+                                comment_num = 0
+                        elif index == start_index + 3:
+                            try:
+                                like_num = bottom.xpath('./a/button/span[last()]/text()')[0].strip()
+                                like_num = like_num.replace('赞', '').strip()
+                                if len(like_num) == 0:
+                                    like_num = 0
+                            except:
+                                try:
+                                    like_num = bottom.xpath('.//em/text()')[0].strip()
+                                except:
+                                    like_num = 0
 
             aweibo = {'mid':mid, 
              'publish_time':publish_time, 
              'user_name':user_name, 
              'user_link':user_link, 
              'content':content, 
-             'source':source,
-             'weibo_link':weibo_link}
-            print(publish_time, mid, user_name, user_link, content.encode('GBK', 'ignore').decode('GBK'), weibo_link)
+             'source':source, 
+             'location_url':location_url, 
+             'location_name':location_name, 
+             'image_urls':' '.join(image_urls), 
+             'weibo_link':weibo_link, 
+             'forward_num':forward_num, 
+             'comment_num':comment_num, 
+             'like_num':like_num}
+            print(publish_time, mid, user_name, user_link, content.encode('GBK', 'ignore').decode('GBK'), image_urls, weibo_link, forward_num, comment_num, like_num)
             yield aweibo
 
     def write_csv(self):
@@ -158,7 +216,13 @@ class NewSuperWeiboTimelineTopicSpider(object):
              'user_link',
              'content',
              'source',
-             'weibo_link',]
+             'location_url',
+             'location_name',
+             'image_urls',
+             'weibo_link',
+             'forward_num',
+             'comment_num',
+             'like_num']
             result_data = [w.values() for w in self.got_weibos][self.written_weibos_num:]
             with open((self.result_file), 'a', encoding='utf-8-sig', newline='') as (f):
                 writer = csv.writer(f)
@@ -179,8 +243,6 @@ class NewSuperWeiboTimelineTopicSpider(object):
             self.params['timescope'] = f"custom:{self.start_time}:{self.end_time}"
             current_page = 1
             this_turn_weibo_count = 0
-            history_data=set()
-            length=-1
             while current_page <= self.max_page:
                 if self.got_weibos_num >= limit_number:
                     print("到达极限了..... limit = ", limit_number)
@@ -192,6 +254,7 @@ class NewSuperWeiboTimelineTopicSpider(object):
                 except:
                     print(traceback.format_exc())
                     print('network error')
+
                     break
 
                 print(f"\n page : {current_page} {response.url}\n")
@@ -206,17 +269,17 @@ class NewSuperWeiboTimelineTopicSpider(object):
                             current_page = self.max_page
                             print('\n________ DATA IS NONE__________\n')
                             break
-                        if self.keyword in weibo.get('content', 'weibo'):
-                            history_data.add(weibo['content'])
-                            if (len(history_data)>length):
-                                self.got_weibos.append(weibo)
-                                self.got_weibo_ids.append(weibo['mid'])
-                                self.got_weibos_num += 1
-                                this_turn_weibo_count += 1
-                                length=len(history_data)
+                        if self.keyword in weibo.get('content', 'weibo') or True:
+                            self.got_weibos.append(weibo)
+                            self.got_weibo_ids.append(weibo['mid'])
+                            self.got_weibos_num += 1
+                            this_turn_weibo_count += 1
 
                 response.close()
-                sleep(2)
+                if current_page % 3 == 0:
+                    if self.got_weibos_num > self.written_weibos_num:
+                        self.write_csv()
+                sleep(3)
                 current_page += 1
 
             if self.got_weibos_num > self.written_weibos_num:
@@ -256,9 +319,7 @@ def dateToStr(dt_time):
     hour = str(dt_time.hour)
     return f"{year}-{month}-{day}-{hour}"
 
-
 def main():
-
     keywords=[]
     with open('five_dimension/virtue/authority_virtue.csv','r',encoding='utf-8-sig') as f:
         lines=f.readlines()
@@ -266,27 +327,16 @@ def main():
             words=line.replace('\n','').split(',')
             keywords.append(words[1])
     for keyword in keywords:
-        # if keyword==('安全' or '和平'):
-        #     continue
-        cookies='SINAGLOBAL=4602739008889.936.1655366773548; ULV=1655366773552:1:1:1:4602739008889.936.1655366773548:; SSOLoginState=1656999406; XSRF-TOKEN=3bc3BuTDOQPq9B8RYzbzEzGZ; SUBP=0033WrSXqPxfM725Ws9jqgMF55529P9D9WWMbTxkCSkANcqGhaSNNxSK5JpX5KMhUgL.FoMXSK2NSo.c1hn2dJLoIEXLxKBLBonL1KnLxKBLBonL1KnLxK-L1hMLB-qLxKML1K2L1-qLxKML1K5LBoet; ALF=1688621950; SCF=AmuJXt01004aAYo_MkA0heebYtQAv89LIDBtiJBsMVyrp4KyrztXs_zPnn816wzF8tT23qp1SS2QIldGKPLF__Y.; SUB=_2A25PwVBQDeRhGeFK7lMW9ifKwzSIHXVst8aYrDV8PUNbmtANLW7CkW9NQ1rnVx56TKGKg5hGI8aLKHdhpQVbdhJW; PC_TOKEN=807f68ca66; WBPSESS=PSwrKvME8CLNuDbjZ94SwKONe3Fry9hO92EJuc1VB01HFrqX0nH1Kr3Oqmaz55sF8tbkWjAls4KtipADKYlbUAk8rMlOw9UjMydyWMUcx5RizX2oxxtLl18x1SOC65r3Fz37wQM7V-VElqPmP8cH1A=='
-        start_time = '2018-07-05-01'
-        end_time = '2022-07-05-01'
+        cookies='SINAGLOBAL=4602739008889.936.1655366773548; ULV=1655366773552:1:1:1:4602739008889.936.1655366773548:; SSOLoginState=1656999406; XSRF-TOKEN=3bc3BuTDOQPq9B8RYzbzEzGZ; PC_TOKEN=9fb29146ea; SUBP=0033WrSXqPxfM725Ws9jqgMF55529P9D9WWMbTxkCSkANcqGhaSNNxSK5JpX5KMhUgL.FoMXSK2NSo.c1hn2dJLoIEXLxKBLBonL1KnLxKBLBonL1KnLxK-L1hMLB-qLxKML1K2L1-qLxKML1K5LBoet; ALF=1688794928; SCF=AmuJXt01004aAYo_MkA0heebYtQAv89LIDBtiJBsMVyrmp2QWFhtA5IWYn2XG9rJeg3EBysfBfkdmkT6Al-v-TY.; SUB=_2A25Pw7PjDeRhGeFK7lMW9ifKwzSIHXVsuKIrrDV8PUNbmtAKLXbgkW9NQ1rnV2N0Lw_ckJ3bY1s0hwAd2vKjGD6r; WBPSESS=PSwrKvME8CLNuDbjZ94SwKONe3Fry9hO92EJuc1VB01HFrqX0nH1Kr3Oqmaz55sF8tbkWjAls4KtipADKYlbUHdDeVFE3fgqqlB2TKbVL6ZbYewkQaVuiczehbj2wkAWtYcRIJxKP5GmgckmT0TI_A=='
+        start_time = '2018-01-01-01'
+        end_time = '2022-01-01-01'
         only_origin = False
 
         spider = NewSuperWeiboTimelineTopicSpider(cookies=cookies, keyword=keyword, start_time=start_time,
                                                   end_time=end_time,only_origin=only_origin)
-        spider.crawl(10000)
-
-    # cookies='SINAGLOBAL=4602739008889.936.1655366773548; ULV=1655366773552:1:1:1:4602739008889.936.1655366773548:; SUBP=0033WrSXqPxfM725Ws9jqgMF55529P9D9WWMbTxkCSkANcqGhaSNNxSK5JpX5KMhUgL.FoMXSK2NSo.c1hn2dJLoIEXLxKBLBonL1KnLxKBLBonL1KnLxK-L1hMLB-qLxKML1K2L1-qLxKML1K5LBoet; PC_TOKEN=fa0b9ed7a3; ALF=1688535405; SSOLoginState=1656999406; SCF=AmuJXt01004aAYo_MkA0heebYtQAv89LIDBtiJBsMVyrXfOFokOy58TH5KY5e3fFDl8BAhj6lginptOxbqX2lzc.; SUB=_2A25Px72_DeRhGeFK7lMW9ifKwzSIHXVstKh3rDV8PUNbmtAKLXbkkW9NQ1rnV1JHZbpPdgYOem4XU0WYx7FM5IGl; XSRF-TOKEN=3bc3BuTDOQPq9B8RYzbzEzGZ; WBPSESS=PSwrKvME8CLNuDbjZ94SwKONe3Fry9hO92EJuc1VB01HFrqX0nH1Kr3Oqmaz55sF8tbkWjAls4KtipADKYlbUCjJXNtLMskOB_aGmn3gwT7AfDdaJ6sHxZiQyORkygudrBwF2tRNHHaV-vnXxpSscw=='
-    # start_time = '2018-07-05-01'
-    # end_time = '2022-07-05-01'
-    # only_origin = False
-    #
-    # spider = NewSuperWeiboTimelineTopicSpider(cookies=cookies, keyword="东京奥运会", start_time=start_time,
-    #                                           end_time=end_time,only_origin=only_origin)
-    # spider.crawl(10000)
-
+        spider.crawl(30000)
 
 
 if __name__ == '__main__':
     main()
+
